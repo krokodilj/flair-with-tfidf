@@ -1107,6 +1107,33 @@ def _get_transformer_sentence_embeddings(
 
     return sentences
 
+from gensim.matutils import sparse2full
+
+def get_tfidf_weighted(
+    tokens: List[Token],
+    token_embeddings: torch.FloatTensor,
+    tdidf_model,
+    dct
+) -> torch.FloatTensor:
+
+    string_tokens = [t.text for t in tokens]
+    bow = dct.doc2bow(string_tokens)
+
+    tfidf_vec = sparse2full(tdidf_model[[bow]][0], len(dct))
+
+    weights = list()
+    embeddings = list()
+    for token, embedding in zip(tokens, token_embeddings):
+        id = dct.token2id[token.text] 
+        weights.append(tfidf_vec[id])
+        embeddings.append(embedding.tolist())
+
+    weights = torch.tensor(weights)
+    embeddings = torch.tensor(embeddings)
+
+    embedding = torch.matmul(weights, embeddings)
+    
+    return embedding
 
 class TransformerXLEmbeddings(TokenEmbeddings):
     def __init__(
@@ -2495,12 +2522,23 @@ class DocumentPoolEmbeddings(DocumentEmbeddings):
         embeddings: List[TokenEmbeddings],
         fine_tune_mode="linear",
         pooling: str = "mean",
+        # ================================
+        # stuff for tfidf weighted embeddings
+        tfidf_model = None,
+        dictionary = None
+        # ================================
     ):
         """The constructor takes a list of embeddings to be combined.
         :param embeddings: a list of token embeddings
         :param pooling: a string which can any value from ['mean', 'max', 'min']
         """
         super().__init__()
+
+        if pooling == 'tfidf_weighted':
+            print('OK' if ( tfidf_model  and dictionary )  else 'NOT OK')
+
+        self.tfidf_model = tfidf_model
+        self.dictionary = dictionary
 
         self.embeddings: StackedEmbeddings = StackedEmbeddings(embeddings=embeddings)
         self.__embedding_length = self.embeddings.embedding_length
@@ -2530,6 +2568,10 @@ class DocumentPoolEmbeddings(DocumentEmbeddings):
             self.pool_op = torch.max
         elif pooling == "min":
             self.pool_op = torch.min
+        # ================================
+        elif pooling == "tfidf_weighted":
+            self.pool_op = get_tfidf_weighted
+        # ================================
         else:
             raise ValueError(f"Pooling operation for {self.mode!r} is not defined")
         self.name: str = f"document_{self.pooling}"
@@ -2564,6 +2606,15 @@ class DocumentPoolEmbeddings(DocumentEmbeddings):
 
             if self.pooling == "mean":
                 pooled_embedding = self.pool_op(word_embeddings, 0)
+            # ================================
+            elif self.pooling == "tfidf_weighted":
+                pooled_embedding = self.pool_op(
+                    sentence.tokens,
+                    word_embeddings,
+                    self.tfidf_model,
+                    self.dictionary
+                    )
+            # ================================
             else:
                 pooled_embedding, _ = self.pool_op(word_embeddings, 0)
 
