@@ -44,6 +44,13 @@ from .training_utils import log_line
 log = logging.getLogger("flair")
 
 
+class TestClass():
+    def __init__(self):
+        print('it works!')
+
+    def test(self):
+        print('i work!')
+
 class Embeddings(torch.nn.Module):
     """Abstract base class for all embeddings. Every new type of embedding must implement these methods."""
 
