@@ -1145,8 +1145,6 @@ def get_tfidf_weighted(
     elif flag == "mean":
         embedding = torch.mean( weights.unsqueeze(0).T * embeddings, dim=0 )
 
-
-    print(embedding.shape)
     return embedding
 
 class TransformerXLEmbeddings(TokenEmbeddings):
