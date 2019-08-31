@@ -1120,7 +1120,8 @@ def get_tfidf_weighted(
     tokens: List[Token],
     token_embeddings: torch.FloatTensor,
     tdidf_model,
-    dct
+    dct,
+    flag = "sum"
 ) -> torch.FloatTensor:
 
     string_tokens = [t.text for t in tokens]
@@ -1132,14 +1133,20 @@ def get_tfidf_weighted(
     embeddings = list()
     for token, embedding in zip(tokens, token_embeddings):
         id = dct.token2id[token.text] 
+        print(token.text, tfidf_vec[id])
         weights.append(tfidf_vec[id])
         embeddings.append(embedding.tolist())
 
     weights = torch.tensor(weights)
     embeddings = torch.tensor(embeddings)
 
-    embedding = torch.matmul(weights, embeddings)
-    
+    if flag == "sum":
+        embedding = torch.matmul(weights, embeddings)
+    elif flag == "mean":
+        embedding = torch.mean( weights.unsqueeze(0).T * embeddings, dim=0 )
+
+
+    print(embedding.shape)
     return embedding
 
 class TransformerXLEmbeddings(TokenEmbeddings):
@@ -2532,7 +2539,7 @@ class DocumentPoolEmbeddings(DocumentEmbeddings):
         # ================================
         # stuff for tfidf weighted embeddings
         tfidf_model = None,
-        dictionary = None
+        dictionary = None,
         # ================================
     ):
         """The constructor takes a list of embeddings to be combined.
@@ -2541,8 +2548,10 @@ class DocumentPoolEmbeddings(DocumentEmbeddings):
         """
         super().__init__()
 
+        # ================
         if pooling == 'tfidf_weighted':
             print('OK' if ( tfidf_model  and dictionary )  else 'NOT OK')
+        # ================
 
         self.tfidf_model = tfidf_model
         self.dictionary = dictionary
@@ -2587,7 +2596,7 @@ class DocumentPoolEmbeddings(DocumentEmbeddings):
     def embedding_length(self) -> int:
         return self.__embedding_length
 
-    def embed(self, sentences: Union[List[Sentence], Sentence]):
+    def embed(self, sentences: Union[List[Sentence], Sentence], flag: str):
         """Add embeddings to every sentence in the given list of sentences. If embeddings are already added, updates
         only if embeddings are non-static."""
 
@@ -2619,7 +2628,8 @@ class DocumentPoolEmbeddings(DocumentEmbeddings):
                     sentence.tokens,
                     word_embeddings,
                     self.tfidf_model,
-                    self.dictionary
+                    self.dictionary,
+                    flag = flag
                     )
             # ================================
             else:
