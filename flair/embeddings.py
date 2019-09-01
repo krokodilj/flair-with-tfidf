@@ -1133,7 +1133,6 @@ def get_tfidf_weighted(
     embeddings = list()
     for token, embedding in zip(tokens, token_embeddings):
         id = dct.token2id[token.text] 
-        print(token.text, tfidf_vec[id])
         weights.append(tfidf_vec[id])
         embeddings.append(embedding.tolist())
 
@@ -1143,7 +1142,7 @@ def get_tfidf_weighted(
     if flag == "sum":
         embedding = torch.matmul(weights, embeddings)
     elif flag == "mean":
-        embedding = torch.mean( weights.unsqueeze(0).T * embeddings, dim=0 )
+        embedding = torch.mean( weights.unsqueeze(0).transpose(-1, 0) * embeddings, dim=0 )
 
     return embedding
 
@@ -2594,7 +2593,7 @@ class DocumentPoolEmbeddings(DocumentEmbeddings):
     def embedding_length(self) -> int:
         return self.__embedding_length
 
-    def embed(self, sentences: Union[List[Sentence], Sentence], flag: str):
+    def embed(self, sentences: Union[List[Sentence], Sentence], flag="sum"):
         """Add embeddings to every sentence in the given list of sentences. If embeddings are already added, updates
         only if embeddings are non-static."""
 
