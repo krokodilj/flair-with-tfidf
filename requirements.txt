@@ -15,5 +15,5 @@ regex
 tabulate
 urllib3<1.25,>=1.20
 langdetect
-ipython==7.6.1
+ipython==7.16.3
 ipython-genutils==0.2.0
